@@ -11,8 +11,8 @@ public class GameFrame extends JFrame {
     Cursor cursor;
     BufferedImage Icon;
 
-    GameFrame(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size) {
-        this.add(new GamePanel(width, height, unit_size, delay, tileTypes, player_size, this));
+    GameFrame(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size, int seed) {
+        this.add(new GamePanel(width, height, unit_size, delay, tileTypes, player_size, this, seed));
         this.setTitle("Game");
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 

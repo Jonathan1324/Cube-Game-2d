@@ -1,16 +1,19 @@
 import javax.swing.*;
+import javax.swing.Timer;
 import java.awt.*;
-import java.awt.image.BufferedImage;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.awt.event.*;
-import javax.swing.*;
-import javax.swing.Timer;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.io.*;
+import java.util.stream.Collectors;
 
 public class GamePanel extends JPanel implements ActionListener{
 
-    private Set<Integer> activeKeys;
+    private final Set<Integer> activeKeys;
     int SCREEN_WIDTH;
     int SCREEN_HEIGHT;
 
@@ -23,15 +26,10 @@ public class GamePanel extends JPanel implements ActionListener{
     int DELAY;
     int LIMIT = 1000;
     int FRAME = 0;
+    int SEED;
 
     int x;
     int y;
-
-    int dir = 303;
-
-    int dirX;
-
-    int dirY;
 
     boolean living = false;
     boolean menu = false;
@@ -42,12 +40,14 @@ public class GamePanel extends JPanel implements ActionListener{
     private List<String> tileTypes;
     private Map<String, Color> tileColorMap;
 
-    GamePanel(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size, GameFrame frame){
+    GamePanel(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size, GameFrame frame, int seed) {
 
         System.setProperty("sun.java2d.opengl", "true");
 
         SCREEN_WIDTH = width;
         SCREEN_HEIGHT = height;
+
+        SEED = seed;
 
         gameFrame = frame;
 
@@ -63,6 +63,14 @@ public class GamePanel extends JPanel implements ActionListener{
         GAME_UNITS = (SCREEN_WIDTH*SCREEN_HEIGHT)/UNIT_SIZE;
 
         this.tileTypes = tileTypes;
+
+        /*
+        try{
+            createFile();
+            this.tileTypes = convertStringToList(getWorldFromFile(".\\world.wrd"));
+            System.out.println("Loaded File from File.");
+        } catch (Exception ignored) {}
+         */
         initializeColorMap();
 
         random = new Random();
@@ -82,10 +90,46 @@ public class GamePanel extends JPanel implements ActionListener{
 
     public void startGame(){
         spawnPlayer();
-        moveMouse(new Point((int) Toolkit.getDefaultToolkit().getScreenSize().getWidth()/2, (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight()/2));
         living = true;
         timer = new Timer(1,this);
         timer.start();
+    }
+
+    public static String convertListToString(List<String> list) {
+        return String.join(",", list);
+    }
+
+    public static List<String> convertStringToList(String str) {
+        return Arrays.asList(str.split(","));
+    }
+
+    private static void modifyFileContent(String filePath, String newContent) throws IOException {
+        Path path = Paths.get(filePath);
+        Files.writeString(path, newContent);
+    }
+
+    public String getWorldFromFile(String path) throws IOException {
+        byte[] encoded = Files.readAllBytes(Paths.get(path));
+        return new String(encoded, StandardCharsets.UTF_8);
+    }
+
+    void createFile() {
+        try {
+            File myObj = new File("world.wrd");
+            if (myObj.createNewFile()) {
+                System.out.println("File created: " + myObj.getName());
+            } else {
+                System.out.println("File already exists.");
+            }
+            try {
+                modifyFileContent(".\\world.wrd", convertListToString(tileTypes));
+            } catch (IOException e) {
+                e.fillInStackTrace();
+            }
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.fillInStackTrace();
+        }
     }
 
     public void spawnPlayer(){
@@ -140,14 +184,12 @@ public class GamePanel extends JPanel implements ActionListener{
                     Color currentTileColor = tileColorMap.getOrDefault(currentTileType, Color.WHITE);
 
                     g.setColor(currentTileColor);
-                    g.fillRect(col * UNIT_SIZE, row * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+                    g.fillRect(col*UNIT_SIZE, row*UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
                 }
             }
 
             g.setColor(Color.GREEN);
             g.fillRect(x*UNIT_SIZE, y*UNIT_SIZE, PLAYER_SIZE, PLAYER_SIZE);
-            g.setColor(Color.red);
-            g.fillRect((x + dirX) * UNIT_SIZE, (y+dirY) * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
             /* GRID FOR THE MAP
             g.setColor(Color.WHITE);
@@ -175,20 +217,16 @@ public class GamePanel extends JPanel implements ActionListener{
         int nextY = y;
         switch (keyCode) {
             case KeyEvent.VK_W:
-                nextX = x + dirX;
-                nextY = y + dirY;
+                nextY = y - 1;
                 break;
             case KeyEvent.VK_S:
-                nextX = x + -dirX;
-                nextY = y + -dirY;
+                nextY = y + 1;
                 break;
             case KeyEvent.VK_D:
-                nextX = x + -dirY;
-                nextY = y + -dirX;
+                nextX = x + 1;
                 break;
             case KeyEvent.VK_A:
-                nextX = x + dirY;
-                nextY = y + dirX;
+                nextX = x - 1;
                 break;
         }
 
@@ -213,86 +251,11 @@ public class GamePanel extends JPanel implements ActionListener{
     public void actionPerformed(ActionEvent e) {
         FRAME++;
 
-        if(dir > 360){
-            dir -= 360;
-        } else if(dir < 0){
-            dir += 360;
-        }
-
-        if(dir < 45){
-            dirY = 0;
-            dirX = 1;
-        } else if(dir < 90){
-            dirY = 1;
-            dirX = 1;
-        } else if(dir < 135){
-            dirY = 1;
-            dirX = 0;
-        } else if(dir < 180){
-            dirY = 1;
-            dirX = -1;
-        } else if(dir < 225){
-            dirY = 0;
-            dirX = -1;
-        } else if(dir < 290){
-            dirY = -1;
-            dirX = -1;
-        } else if(dir < 315){
-            dirY = -1;
-            dirX = 0;
-        } else if(dir > 315){
-            dirY = -1;
-            dirX = 1;
-        }
-
         repaint();
 
         if(FRAME % (DELAY/PLAYER_MULTIPLIER) == 0){
             handleMoveKeys();
         }
-
-        //Cursor Lock
-
-        if(gameFrame.isActive() && !menu){
-            dir -= (int) (Toolkit.getDefaultToolkit().getScreenSize().getWidth()/2 - (MouseInfo.getPointerInfo().getLocation().x)) / (102-100);
-            System.out.println(dir);
-
-            gameFrame.getContentPane().setCursor(Toolkit.getDefaultToolkit().createCustomCursor(new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB), new Point(0, 0), "blank cursor"));
-            moveMouse(new Point((int) Toolkit.getDefaultToolkit().getScreenSize().getWidth()/2, (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight()/2));
-        } else {
-            gameFrame.getContentPane().setCursor(gameFrame.cursor);
-        }
-    }
-
-    public void moveMouse(Point p) {
-        GraphicsEnvironment ge =
-                GraphicsEnvironment.getLocalGraphicsEnvironment();
-        GraphicsDevice[] gs = ge.getScreenDevices();
-
-        // Search the devices for the one that draws the specified point.
-        for (GraphicsDevice device: gs) {
-            GraphicsConfiguration[] configurations =
-                    device.getConfigurations();
-            for (GraphicsConfiguration config: configurations) {
-                Rectangle bounds = config.getBounds();
-                if(bounds.contains(p)) {
-                    // Set point to screen coordinates.
-                    Point b = bounds.getLocation();
-                    Point s = new Point(p.x - b.x, p.y - b.y);
-
-                    try {
-                        Robot r = new Robot(device);
-                        r.mouseMove(s.x, s.y);
-                    } catch (AWTException e) {
-                        e.printStackTrace();
-                    }
-
-                    return;
-                }
-            }
-        }
-        // Couldn't move to the point, it may be off-screen.
-        return;
     }
 
     public void keyPressedAction(int keyCode) {
@@ -306,17 +269,8 @@ public class GamePanel extends JPanel implements ActionListener{
                     break;
 
                 case KeyEvent.VK_ESCAPE:
-                    moveMouse(new Point((int) Toolkit.getDefaultToolkit().getScreenSize().getWidth()/2, (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight()/2));
-                    switch (String.valueOf(menu)) {
-                        case "true" -> {
-                            menu = false;
-                            FRAME = 0;
-                        }
-                        case "false" -> {
-                            menu = true;
-                            FRAME = 0;
-                        }
-                    }
+                    SettingsFrame frame = new SettingsFrame(SEED);
+                    gameFrame.dispose();
 
             }
         }
