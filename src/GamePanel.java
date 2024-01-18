@@ -9,11 +9,11 @@ import java.util.List;
 import java.awt.event.*;
 import java.util.*;
 import java.io.*;
-import java.util.stream.Collectors;
 
 public class GamePanel extends JPanel implements ActionListener{
 
     private final Set<Integer> activeKeys;
+    private Set<Integer> nextKeys;
     int SCREEN_WIDTH;
     int SCREEN_HEIGHT;
 
@@ -36,22 +36,29 @@ public class GamePanel extends JPanel implements ActionListener{
     Timer timer;
     Random random;
     GameFrame gameFrame;
+    SettingsFrame settingsFrame;
 
     private List<String> tileTypes;
     private Map<String, Color> tileColorMap;
 
-    GamePanel(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size, GameFrame frame, int seed) {
+    int Option = 0;
+    int PaddingTop = 100;
+    int maxOption = PaddingTop*3;
 
+    GamePanel(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size, GameFrame frame, int seed, SettingsFrame Settingsframe) {
         System.setProperty("sun.java2d.opengl", "true");
 
         SCREEN_WIDTH = width;
         SCREEN_HEIGHT = height;
+
+        settingsFrame = Settingsframe;
 
         SEED = seed;
 
         gameFrame = frame;
 
         activeKeys = new HashSet<>();
+        nextKeys = new HashSet<>();
 
         DELAY = delay;
 
@@ -132,6 +139,30 @@ public class GamePanel extends JPanel implements ActionListener{
         }
     }
 
+    public void drawMenu(Graphics g){
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+        String Seed = "Seed: " + gameFrame.Seed;
+        String Scl = "Scl: " + gameFrame.Scl;
+        String UnitSize = "Unit Size: " + gameFrame.unitSize;
+        String PlayerSize = "Player Size: " + gameFrame.playerSize;
+
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Ink Free", Font.BOLD, 40));
+        FontMetrics metrics = getFontMetrics(g.getFont());
+
+        int option = g.getFont().getSize() + Option;
+
+        g.drawString(Seed, (SCREEN_WIDTH - metrics.stringWidth(Seed))/2, g.getFont().getSize());
+        g.drawString(Scl, (SCREEN_WIDTH - metrics.stringWidth(Scl))/2, g.getFont().getSize() + PaddingTop);
+        g.drawString(UnitSize, (SCREEN_WIDTH - metrics.stringWidth(UnitSize))/2, g.getFont().getSize() + PaddingTop*2);
+        g.drawString(PlayerSize, (SCREEN_WIDTH - metrics.stringWidth(PlayerSize))/2, g.getFont().getSize() + PaddingTop*3);
+
+        g.drawOval(700, option - 25, 20, 20);
+        g.drawOval(1300, option - 25, 20, 20);
+    }
+
     public void spawnPlayer(){
         int tries = 0;
         while(true) {
@@ -174,22 +205,22 @@ public class GamePanel extends JPanel implements ActionListener{
     }
 
     public void draw(Graphics g){
+        if(!menu) {
+            if (living) {
 
-        if(living) {
+                for (int row = 0; row < SCREEN_HEIGHT / UNIT_SIZE; row++) {
+                    for (int col = 0; col < SCREEN_WIDTH / UNIT_SIZE; col++) {
+                        int index = row * (SCREEN_WIDTH / UNIT_SIZE) + col;
+                        String currentTileType = tileTypes.get(index);
+                        Color currentTileColor = tileColorMap.getOrDefault(currentTileType, Color.WHITE);
 
-            for (int row = 0; row < SCREEN_HEIGHT / UNIT_SIZE; row++) {
-                for (int col = 0; col < SCREEN_WIDTH / UNIT_SIZE; col++) {
-                    int index = row * (SCREEN_WIDTH / UNIT_SIZE) + col;
-                    String currentTileType = tileTypes.get(index);
-                    Color currentTileColor = tileColorMap.getOrDefault(currentTileType, Color.WHITE);
-
-                    g.setColor(currentTileColor);
-                    g.fillRect(col*UNIT_SIZE, row*UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+                        g.setColor(currentTileColor);
+                        g.fillRect(col * UNIT_SIZE, row * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+                    }
                 }
-            }
 
-            g.setColor(Color.GREEN);
-            g.fillRect(x*UNIT_SIZE, y*UNIT_SIZE, PLAYER_SIZE, PLAYER_SIZE);
+                g.setColor(Color.GREEN);
+                g.fillRect(x * UNIT_SIZE, y * UNIT_SIZE, PLAYER_SIZE, PLAYER_SIZE);
 
             /* GRID FOR THE MAP
             g.setColor(Color.WHITE);
@@ -198,9 +229,11 @@ public class GamePanel extends JPanel implements ActionListener{
                 g.drawLine(0, i * UNIT_SIZE, SCREEN_WIDTH, i * UNIT_SIZE);
             }w
              */
-        }
-        else {
-            dead(g);
+            } else {
+                dead(g);
+            }
+        } else {
+            drawMenu(g);
         }
     }
 
@@ -255,23 +288,33 @@ public class GamePanel extends JPanel implements ActionListener{
 
         if(FRAME % (DELAY/PLAYER_MULTIPLIER) == 0){
             handleMoveKeys();
+            nextKeys = activeKeys;
         }
     }
 
     public void keyPressedAction(int keyCode) {
         if(keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_S || keyCode == KeyEvent.VK_D || keyCode == KeyEvent.VK_A){
             activeKeys.add(keyCode);
-        } else {
-            switch (keyCode) {
-
-                case KeyEvent.VK_E:
+            nextKeys.add(keyCode);
+        }
+        switch (keyCode) {
+            case KeyEvent.VK_E -> {
+                if (!menu) {
                     spawnPlayer();
-                    break;
-
-                case KeyEvent.VK_ESCAPE:
-                    SettingsFrame frame = new SettingsFrame(SEED);
-                    gameFrame.dispose();
-
+                }
+            }
+            case KeyEvent.VK_ESCAPE -> {
+                menu = !menu;
+            }
+            case KeyEvent.VK_W -> {
+                if(Option > 0){
+                    Option -= PaddingTop;
+                }
+            }
+            case KeyEvent.VK_S -> {
+                if(Option < maxOption){
+                    Option += PaddingTop;
+                }
             }
         }
     }
@@ -279,8 +322,11 @@ public class GamePanel extends JPanel implements ActionListener{
     public void keyReleasedAction(int keyCode) {activeKeys.remove(keyCode);}
 
     private void handleMoveKeys() {
+        if(menu){
+            return;
+        }
         int steps = 1;
-        for (Integer keyCode : activeKeys) {
+        for (Integer keyCode : nextKeys) {
             move(keyCode);
         }
     }

@@ -16,6 +16,7 @@ public class SettingsFrame extends JFrame {
     private int unitSize;
 
     private int playerSize;
+    SettingsFrame settingsFrame = this;
 
     public SettingsFrame() {
         setTitle("Game Settings");
@@ -81,8 +82,6 @@ public class SettingsFrame extends JFrame {
                             noiseValue = 0-noiseValue;
                         }
 
-                        System.out.println(noiseValue);
-
                         if (noiseValue < 0.2) {
                             tileTypes.add("wall");
                         } else {
@@ -91,7 +90,7 @@ public class SettingsFrame extends JFrame {
                     }
                 }
 
-                new GameFrame(screenWidth, screenHeight, unitSize, 10, tileTypes, unitSize*playerSize, seed);
+                new GameFrame(screenWidth, screenHeight, scl, unitSize, 10, tileTypes, unitSize*playerSize, seed, settingsFrame);
 
                 dispose();
             }
@@ -165,7 +164,7 @@ public class SettingsFrame extends JFrame {
                     }
                 }
 
-                new GameFrame(screenWidth, screenHeight, unitSize, 10, tileTypes, unitSize*playerSize, seed);
+                new GameFrame(screenWidth, screenHeight, scl, unitSize, 10, tileTypes, unitSize*playerSize, seed, settingsFrame);
 
                 dispose();
             }
