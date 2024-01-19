@@ -43,9 +43,11 @@ public class GamePanel extends JPanel implements ActionListener{
 
     int Option = 0;
     int PaddingTop = 100;
-    int maxOption = PaddingTop*3;
+    int maxOption = PaddingTop*2;
+    String currentState = "";
+    public String worldName = "world.wrd";
 
-    GamePanel(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size, GameFrame frame, int seed, SettingsFrame Settingsframe) {
+    GamePanel(int width, int height, int unit_size, int delay, List<String> tileTypes, int player_size, GameFrame frame, int seed, SettingsFrame Settingsframe, int playerMultiplier) {
         System.setProperty("sun.java2d.opengl", "true");
 
         SCREEN_WIDTH = width;
@@ -65,19 +67,20 @@ public class GamePanel extends JPanel implements ActionListener{
         UNIT_SIZE = unit_size;
         PLAYER_SIZE = player_size;
 
-        PLAYER_MULTIPLIER = player_size/unit_size;
+        PLAYER_MULTIPLIER = playerMultiplier;
 
         GAME_UNITS = (SCREEN_WIDTH*SCREEN_HEIGHT)/UNIT_SIZE;
 
         this.tileTypes = tileTypes;
 
-        /*
+        /* Create File at start
         try{
             createFile();
             this.tileTypes = convertStringToList(getWorldFromFile(".\\world.wrd"));
             System.out.println("Loaded File from File.");
         } catch (Exception ignored) {}
          */
+
         initializeColorMap();
 
         random = new Random();
@@ -120,21 +123,22 @@ public class GamePanel extends JPanel implements ActionListener{
         return new String(encoded, StandardCharsets.UTF_8);
     }
 
-    void createFile() {
+    void createFile(String name) {
         try {
-            File myObj = new File("world.wrd");
+            File myObj = new File(name);
             if (myObj.createNewFile()) {
-                System.out.println("File created: " + myObj.getName());
+                currentState = "saved the world '" + myObj.getName() + "'";
             } else {
-                System.out.println("File already exists.");
+                currentState = "updated the world '" + myObj.getName() + "'";
             }
             try {
-                modifyFileContent(".\\world.wrd", convertListToString(tileTypes));
+                modifyFileContent(".\\" + name, Integer.toBinaryString(x) + "," + Integer.toBinaryString(y) + "\n" + convertListToString(tileTypes).replace("floor", "0").replace("wall", "1"));
             } catch (IOException e) {
+                currentState = "couldn't save world";
                 e.fillInStackTrace();
             }
         } catch (IOException e) {
-            System.out.println("An error occurred.");
+            currentState = "couldn't save world";
             e.fillInStackTrace();
         }
     }
@@ -143,10 +147,9 @@ public class GamePanel extends JPanel implements ActionListener{
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-        String Seed = "Seed: " + gameFrame.Seed;
-        String Scl = "Scl: " + gameFrame.Scl;
-        String UnitSize = "Unit Size: " + gameFrame.unitSize;
-        String PlayerSize = "Player Size: " + gameFrame.playerSize;
+        String SaveButton = "Save as '" + worldName + "'";
+        String LoadButton = "Load '" + worldName + "'";
+        String ExitButton = "Leave";
 
         g.setColor(Color.WHITE);
         g.setFont(new Font("Ink Free", Font.BOLD, 40));
@@ -154,13 +157,38 @@ public class GamePanel extends JPanel implements ActionListener{
 
         int option = g.getFont().getSize() + Option;
 
-        g.drawString(Seed, (SCREEN_WIDTH - metrics.stringWidth(Seed))/2, g.getFont().getSize());
-        g.drawString(Scl, (SCREEN_WIDTH - metrics.stringWidth(Scl))/2, g.getFont().getSize() + PaddingTop);
-        g.drawString(UnitSize, (SCREEN_WIDTH - metrics.stringWidth(UnitSize))/2, g.getFont().getSize() + PaddingTop*2);
-        g.drawString(PlayerSize, (SCREEN_WIDTH - metrics.stringWidth(PlayerSize))/2, g.getFont().getSize() + PaddingTop*3);
+        g.drawString(SaveButton, (SCREEN_WIDTH - metrics.stringWidth(SaveButton))/2, g.getFont().getSize() + 20);
+        g.drawString(LoadButton, (SCREEN_WIDTH - metrics.stringWidth(LoadButton))/2, g.getFont().getSize() + PaddingTop + 20);
+        g.drawString(ExitButton, (SCREEN_WIDTH - metrics.stringWidth(ExitButton))/2, g.getFont().getSize() + PaddingTop*2 + 20);
 
-        g.drawOval(700, option - 25, 20, 20);
-        g.drawOval(1300, option - 25, 20, 20);
+        g.drawString(currentState, (SCREEN_WIDTH - metrics.stringWidth(currentState))/2, g.getFont().getSize() + PaddingTop*4 + 20);
+
+        g.drawOval((int) (SCREEN_WIDTH/2-metrics.stringWidth(SaveButton)/1.5), option - 5, 20, 20);
+        g.drawOval((int) (SCREEN_WIDTH/2+metrics.stringWidth(SaveButton)/1.5), option - 5, 20, 20);
+    }
+
+    void MenuOption(int option) {
+        option /= 100;
+
+        switch (option){
+            case 0 -> createFile(worldName);
+            case 1 -> {
+                String[] values;
+                try{
+
+                    values = getWorldFromFile(".\\world.wrd").split("\\r?\\n|\\r");
+                    this.tileTypes = convertStringToList(values[1].replace("0", "floor").replace("1", "wall"));
+
+                    spawnPlayer(Integer.parseInt(convertStringToList(values[0]).get(0), 2), Integer.parseInt(convertStringToList(values[0]).get(1), 2));
+
+                    currentState = "loaded the world '" + worldName + "'";
+                } catch (Exception e){
+                    e.fillInStackTrace();
+                }
+            }
+            case 2 -> gameFrame.dispatchEvent(new WindowEvent(gameFrame, WindowEvent.WINDOW_CLOSING));
+        }
+
     }
 
     public void spawnPlayer(){
@@ -199,46 +227,43 @@ public class GamePanel extends JPanel implements ActionListener{
         }
     }
 
+    public void spawnPlayer(int X, int Y){
+        x = X;
+        y = Y;
+    }
+
     public void paintComponent(Graphics g){
-        super.paintComponent(g);
+        //super.paintComponent(g);
         draw(g);
+    }
+
+    void drawBackground(Graphics g){
+        for (int row = 0; row < SCREEN_HEIGHT / UNIT_SIZE; row++) {
+            for (int col = 0; col < SCREEN_WIDTH / UNIT_SIZE; col++) {
+                int index = row * (SCREEN_WIDTH / UNIT_SIZE) + col;
+                String currentTileType = tileTypes.get(index);
+                Color currentTileColor = tileColorMap.getOrDefault(currentTileType, Color.WHITE);
+
+                g.setColor(currentTileColor);
+                g.fillRect(col * UNIT_SIZE, row * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+            }
+        }
     }
 
     public void draw(Graphics g){
         if(!menu) {
             if (living) {
 
-                for (int row = 0; row < SCREEN_HEIGHT / UNIT_SIZE; row++) {
-                    for (int col = 0; col < SCREEN_WIDTH / UNIT_SIZE; col++) {
-                        int index = row * (SCREEN_WIDTH / UNIT_SIZE) + col;
-                        String currentTileType = tileTypes.get(index);
-                        Color currentTileColor = tileColorMap.getOrDefault(currentTileType, Color.WHITE);
-
-                        g.setColor(currentTileColor);
-                        g.fillRect(col * UNIT_SIZE, row * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
-                    }
-                }
+                drawBackground(g);
 
                 g.setColor(Color.GREEN);
                 g.fillRect(x * UNIT_SIZE, y * UNIT_SIZE, PLAYER_SIZE, PLAYER_SIZE);
-
-            /* GRID FOR THE MAP
-            g.setColor(Color.WHITE);
-            for (int i = 0; i < SCREEN_HEIGHT / UNIT_SIZE; i++) {
-                g.drawLine(i * UNIT_SIZE, 0, i * UNIT_SIZE, SCREEN_HEIGHT);
-                g.drawLine(0, i * UNIT_SIZE, SCREEN_WIDTH, i * UNIT_SIZE);
-            }w
-             */
             } else {
                 dead(g);
             }
         } else {
             drawMenu(g);
         }
-    }
-
-    public void checkCollisions(){
-
     }
 
     public void dead(Graphics g){
@@ -249,28 +274,17 @@ public class GamePanel extends JPanel implements ActionListener{
         int nextX = x;
         int nextY = y;
         switch (keyCode) {
-            case KeyEvent.VK_W:
-                nextY = y - 1;
-                break;
-            case KeyEvent.VK_S:
-                nextY = y + 1;
-                break;
-            case KeyEvent.VK_D:
-                nextX = x + 1;
-                break;
-            case KeyEvent.VK_A:
-                nextX = x - 1;
-                break;
+            case KeyEvent.VK_W -> nextY = y - 1;
+            case KeyEvent.VK_S -> nextY = y + 1;
+            case KeyEvent.VK_D -> nextX = x + 1;
+            case KeyEvent.VK_A -> nextX = x - 1;
         }
 
 
         // Check if the next position is within bounds
         if (nextX >= 0 && (nextX+PLAYER_MULTIPLIER-1) < SCREEN_WIDTH / UNIT_SIZE && nextY >= 0 && (nextY + PLAYER_MULTIPLIER - 1) < SCREEN_HEIGHT / UNIT_SIZE) {
             // Check for walls at all four corners of the player's next position
-            boolean canMove = tileTypes.get((nextY * (SCREEN_WIDTH / UNIT_SIZE)) + nextX).equals("floor") &&
-                    tileTypes.get((nextY * (SCREEN_WIDTH / UNIT_SIZE)) + (nextX + PLAYER_MULTIPLIER - 1)).equals("floor") &&
-                    tileTypes.get(((nextY + PLAYER_MULTIPLIER - 1) * (SCREEN_WIDTH / UNIT_SIZE)) + nextX).equals("floor") &&
-                    tileTypes.get(((nextY + PLAYER_MULTIPLIER - 1) * (SCREEN_WIDTH / UNIT_SIZE)) + (nextX + PLAYER_MULTIPLIER - 1)).equals("floor");
+            boolean canMove = isCanMove(nextY, nextX);
 
             // If there are no walls, update the player's position
             if (canMove) {
@@ -280,13 +294,58 @@ public class GamePanel extends JPanel implements ActionListener{
         }
     }
 
+    private boolean isCanMove(int nextY, int nextX) {
+        boolean canMove = tileTypes.get((nextY * (SCREEN_WIDTH / UNIT_SIZE)) + nextX).equals("floor") &&
+                tileTypes.get((nextY * (SCREEN_WIDTH / UNIT_SIZE)) + (nextX + PLAYER_MULTIPLIER - 1)).equals("floor") &&
+                tileTypes.get(((nextY + PLAYER_MULTIPLIER - 1) * (SCREEN_WIDTH / UNIT_SIZE)) + nextX).equals("floor") &&
+                tileTypes.get(((nextY + PLAYER_MULTIPLIER - 1) * (SCREEN_WIDTH / UNIT_SIZE)) + (nextX + PLAYER_MULTIPLIER - 1)).equals("floor");
+
+        int temporalY = nextY;
+        for(int i = 0; i < PLAYER_MULTIPLIER; i++){
+            for(int j = 0; j < PLAYER_MULTIPLIER; j++){
+                if(!canMove){
+                    break;
+                }
+                canMove = tileTypes.get(temporalY * (SCREEN_WIDTH / UNIT_SIZE) + nextX + j).equals("floor");
+            }
+            temporalY++;
+        }
+        return canMove;
+    }
+
+    public void moveWithoutCollision(int X, int Y){
+        x += X;
+        y += Y;
+
+        int temporalY = y;
+
+        if (x >= 0 && (x+PLAYER_MULTIPLIER-1) < SCREEN_WIDTH / UNIT_SIZE && y >= 0 && (y + PLAYER_MULTIPLIER - 1) < SCREEN_HEIGHT / UNIT_SIZE){
+            for(int i = 0; i < PLAYER_MULTIPLIER; i++){
+                for(int j = 0; j < PLAYER_MULTIPLIER; j++){
+                    tileTypes.set(temporalY * (SCREEN_WIDTH / UNIT_SIZE) + x + j, "floor");
+                }
+                temporalY++;
+            }
+        } else {
+            x -= X;
+            y -= Y;
+        }
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
         FRAME++;
 
         repaint();
 
-        if(FRAME % (DELAY/PLAYER_MULTIPLIER) == 0){
+        boolean name;
+        try{
+            name = FRAME % (DELAY/PLAYER_MULTIPLIER) == 0;
+        } catch (Exception E){
+            name = true;
+        }
+
+        if(name){
             handleMoveKeys();
             nextKeys = activeKeys;
         }
@@ -303,18 +362,30 @@ public class GamePanel extends JPanel implements ActionListener{
                     spawnPlayer();
                 }
             }
-            case KeyEvent.VK_ESCAPE -> {
-                menu = !menu;
-            }
-            case KeyEvent.VK_W -> {
-                if(Option > 0){
+            case KeyEvent.VK_ESCAPE -> menu = !menu;
+            case KeyEvent.VK_W, KeyEvent.VK_UP -> {
+                if(Option > 0 && menu){
                     Option -= PaddingTop;
                 }
             }
-            case KeyEvent.VK_S -> {
-                if(Option < maxOption){
+            case KeyEvent.VK_S, KeyEvent.VK_DOWN -> {
+                if(Option < maxOption && menu){
                     Option += PaddingTop;
                 }
+            }
+            case KeyEvent.VK_SPACE-> {
+                if(menu){
+                    MenuOption(Option);
+                }
+            }
+        }
+
+        if(keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_LEFT || keyCode == KeyEvent.VK_RIGHT){
+            switch (keyCode){
+                case KeyEvent.VK_UP -> moveWithoutCollision(0, -1);
+                case KeyEvent.VK_DOWN -> moveWithoutCollision(0, 1);
+                case KeyEvent.VK_LEFT -> moveWithoutCollision(-1, 0);
+                case KeyEvent.VK_RIGHT -> moveWithoutCollision(1, 0);
             }
         }
     }
@@ -325,14 +396,13 @@ public class GamePanel extends JPanel implements ActionListener{
         if(menu){
             return;
         }
-        int steps = 1;
         for (Integer keyCode : nextKeys) {
             move(keyCode);
         }
     }
 
-   class MyKeyAdapter extends KeyAdapter{
-        private GamePanel gamePanel;
+   static class MyKeyAdapter extends KeyAdapter{
+        private final GamePanel gamePanel;
 
         public MyKeyAdapter(GamePanel gamePanel){
             this.gamePanel = gamePanel;

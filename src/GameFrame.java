@@ -18,8 +18,14 @@ public class GameFrame extends JFrame {
     String unitSize;
     String playerSize;
 
-    GameFrame(int width, int height, float scl, int unit_size, int delay, List<String> tileTypes, int player_size, int seed, SettingsFrame settingsFrame) {
-        this.add(new GamePanel(width, height, unit_size, delay, tileTypes, player_size, this, seed, settingsFrame));
+    GameFrame(int width, int height, float scl, int unit_size, int delay, List<String> tileTypes, int player_size, int seed, SettingsFrame settingsFrame, int playerMultiplier, boolean fullscreen) {
+
+        if(fullscreen){
+            this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            this.setUndecorated(true);
+        }
+
+        this.add(new GamePanel(width, height, unit_size, delay, tileTypes, player_size, this, seed, settingsFrame, playerMultiplier));
         this.setTitle("Game");
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
